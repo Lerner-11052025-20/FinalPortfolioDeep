@@ -1,12 +1,19 @@
 import React, { useState } from 'react';
+import emailjs from '@emailjs/browser';
 import { motion } from 'framer-motion';
 import { FiMail, FiMapPin, FiSend, FiGithub, FiLinkedin, FiPhone, FiArrowRight, FiCheck, FiAlertCircle } from 'react-icons/fi';
 
 const ContactComponent = () => {
+    // Initialize EmailJS
+    useState(() => {
+        emailjs.init(import.meta.env.VITE_EMAILJS_PUBLIC_KEY);
+    }, []);
+
     const [formData, setFormData] = useState({ name: '', email: '', message: '' });
     const [errors, setErrors] = useState({});
     const [submitted, setSubmitted] = useState(false);
-    const [hoveredCard, setHoveredCard] = useState(null);
+    const [showModal, setShowModal] = useState(false);
+    const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
     const validateEmail = (email) => {
@@ -41,48 +48,56 @@ const ContactComponent = () => {
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
-        // Clear error for this field when user starts typing
         if (errors[name]) {
             setErrors(prev => ({ ...prev, [name]: '' }));
         }
     };
 
-    const handleSubmit = async (e) => {
+    const handleFormSubmit = (e) => {
         e.preventDefault();
-
-        if (!validateForm()) {
-            return;
+        if (validateForm()) {
+            setShowModal(true);
         }
+    };
 
+    const confirmSend = async () => {
+        setShowModal(false);
         setIsLoading(true);
+
+        // 1-second process delay as requested
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
         try {
-            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-            const response = await fetch(`${apiUrl}/send-email`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    name: formData.name,
-                    email: formData.email,
-                    message: formData.message
-                })
-            });
+            const templateParams = {
+                from_name: formData.name,
+                from_email: formData.email,
+                reply_to: formData.email,
+                message: formData.message,
+            };
 
-            const result = await response.json();
+            console.log('Sending Email with Params:', templateParams);
+            const result = await emailjs.send(
+                import.meta.env.VITE_EMAILJS_SERVICE_ID,
+                import.meta.env.VITE_EMAILJS_TEMPLATE_ID,
+                templateParams,
+                import.meta.env.VITE_EMAILJS_PUBLIC_KEY
+            );
+            console.log('EmailJS Response:', result);
 
-            if (result.success) {
-                setSubmitted(true);
+            if (result.status === 200) {
+                setShowSuccessOverlay(true);
+                setFormData({ name: '', email: '', message: '' });
+                setErrors({});
+
+                // Auto hide success overlay after 4 seconds
                 setTimeout(() => {
-                    setSubmitted(false);
-                    setFormData({ name: '', email: '', message: '' });
-                    setErrors({});
-                }, 3000);
+                    setShowSuccessOverlay(false);
+                }, 4000);
             } else {
-                setErrors({ submit: result.error || 'Failed to send message' });
+                setErrors({ submit: 'Failed to send message. Please try again later.' });
             }
         } catch (error) {
-            console.error('Error:', error);
+            console.error('EmailJS Error:', error);
             setErrors({ submit: 'Network error. Please try again.' });
         } finally {
             setIsLoading(false);
@@ -115,6 +130,66 @@ const ContactComponent = () => {
 
     return (
         <section id="contact" className="relative py-32 px-4 overflow-hidden">
+            {/* Success Overlay */}
+            {showSuccessOverlay && (
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 z-[100] flex items-center justify-center backdrop-blur-xl bg-black/40"
+                >
+                    <motion.div
+                        initial={{ scale: 0.9, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        className="bg-white/10 border border-white/20 p-12 rounded-3xl text-center shadow-2xl max-w-md mx-4"
+                    >
+                        <div className="w-20 h-20 bg-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-emerald-500/20">
+                            <FiCheck size={40} className="text-white" />
+                        </div>
+                        <h3 className="text-3xl font-bold text-white mb-4">Message Sent!</h3>
+                        <p className="text-text-secondary/80 text-lg mb-8">
+                            Thank you for reaching out! Your message has been sent successfully. I'll get back to you soon.
+                        </p>
+                        <button
+                            onClick={() => setShowSuccessOverlay(false)}
+                            className="px-8 py-3 bg-white text-black font-bold rounded-xl hover:bg-opacity-90 transition-all"
+                        >
+                            Got it
+                        </button>
+                    </motion.div>
+                </motion.div>
+            )}
+
+            {/* Confirmation Modal */}
+            {showModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                    <motion.div
+                        initial={{ y: 50, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        className="bg-zinc-900 border border-white/10 p-8 rounded-3xl max-w-md w-full shadow-2xl"
+                    >
+                        <h3 className="text-2xl font-bold text-white mb-4">Confirm Submission</h3>
+                        <p className="text-text-secondary mb-8 leading-relaxed">
+                            Are you sure you want to send this message?
+                        </p>
+                        <div className="flex gap-4">
+                            <button
+                                onClick={() => setShowModal(false)}
+                                className="flex-1 py-3 rounded-xl bg-white/5 border border-white/10 text-white font-semibold hover:bg-white/10 transition-all"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={confirmSend}
+                                className="flex-1 py-3 rounded-xl bg-gradient-to-r from-accent-blue to-accent-emerald text-white font-bold shadow-lg shadow-accent-blue/20 hover:scale-[1.02] transition-all"
+                            >
+                                Yes, Send it
+                            </button>
+                        </div>
+                    </motion.div>
+                </div>
+            )}
+
             {/* Animated Background Elements */}
             <div className="absolute inset-0 -z-10">
                 <div className="absolute top-20 left-10 w-72 h-72 bg-accent-blue/10 rounded-full mix-blend-multiply opacity-20" />
@@ -151,200 +226,46 @@ const ContactComponent = () => {
                         variants={itemVariants}
                         className="text-lg md:text-xl text-text-secondary/80 max-w-3xl mx-auto leading-relaxed"
                     >
-                        Have a project in mind? Let's collaborate and create something extraordinary together. Reach out and let's discuss your next big idea.
+                        Have a project in mind? Let's collaborate and create something extraordinary together.
                     </motion.p>
                 </motion.div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-16">
-                    {contactCards.map((card, idx) => {
-                        const Icon = card.icon;
-                        return (
-                            <motion.div
-                                key={card.id}
-                                variants={itemVariants}
-                                initial="hidden"
-                                whileInView="visible"
-                                viewport={{ once: true }}
-                                transition={{ delay: idx * 0.1 }}
-                                className="group relative h-full"
-                            >
-                                <motion.a
-                                    href={card.href || '#'}
-                                    className="relative h-full p-8 rounded-3xl bg-gradient-to-br from-white/10 to-white/5 border border-white/10 transition-all duration-300 flex flex-col justify-between overflow-hidden group/card"
-                                >
-                                    <div className="relative z-10">
-                                        <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${card.color} flex items-center justify-center text-white mb-6 shadow-lg shadow-accent-blue/20 transition-all`}>
-                                            <Icon size={28} />
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 max-w-6xl mx-auto">
+                    {/* Left: Info Cards & Social */}
+                    <div className="space-y-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {contactCards.map((card, idx) => {
+                                const Icon = card.icon;
+                                return (
+                                    <motion.a
+                                        key={card.id}
+                                        href={card.href || '#'}
+                                        variants={itemVariants}
+                                        initial="hidden"
+                                        whileInView="visible"
+                                        viewport={{ once: true }}
+                                        transition={{ delay: idx * 0.1 }}
+                                        className="p-6 rounded-2xl bg-white/5 border border-white/10 hover:border-accent-blue/30 transition-all group"
+                                    >
+                                        <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${card.color} flex items-center justify-center text-white mb-4 shadow-lg shadow-black/20`}>
+                                            <Icon size={20} />
                                         </div>
-
-                                        <p className="text-[11px] text-text-muted font-bold uppercase tracking-widest mb-2">
-                                            {card.label}
-                                        </p>
-                                        <p className="text-xl font-bold text-text-primary">
-                                            {card.value}
-                                        </p>
-                                    </div>
-
-                                    <div className="flex items-center gap-2 text-accent-blue font-semibold mt-6">
-                                        <span>Connect</span>
-                                        <FiArrowRight size={18} />
-                                    </div>
-                                </motion.a>
-                            </motion.div>
-                        );
-                    })}
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    {/* Contact Form */}
-                    <motion.div
-                        variants={itemVariants}
-                        initial="hidden"
-                        whileInView="visible"
-                        viewport={{ once: true }}
-                        className="relative group"
-                    >
-                        <div className="relative p-10 md:p-12 rounded-3xl bg-gradient-to-br from-white/15 to-white/5 border border-white/20 shadow-2xl shadow-black/20 transition-all duration-300">
-                            <motion.h3
-                                initial={{ opacity: 0, y: 10 }}
-                                whileInView={{ opacity: 1, y: 0 }}
-                                className="text-3xl font-bold text-white mb-2"
-                            >
-                                Send me a message
-                            </motion.h3>
-                            <p className="text-text-secondary/70 mb-8">I'll get back to you as soon as possible.</p>
-
-                            <form onSubmit={handleSubmit} className="space-y-6">
-                                <motion.div
-                                    initial={{ opacity: 0, y: 20 }}
-                                    whileInView={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: 0.1 }}
-                                    className="space-y-3"
-                                >
-                                    <div className="flex items-center justify-between">
-                                        <label className="text-[11px] text-text-muted font-bold uppercase tracking-widest">Full Name</label>
-                                        {errors.name && (
-                                            <span className="text-[10px] text-red-400 font-semibold flex items-center gap-1">
-                                                <FiAlertCircle size={12} /> {errors.name}
-                                            </span>
-                                        )}
-                                    </div>
-                                    <motion.input
-                                        type="text"
-                                        name="name"
-                                        value={formData.name}
-                                        onChange={handleChange}
-                                        placeholder="Your name"
-                                        className={`w-full px-5 py-4 rounded-2xl text-white placeholder-white focus:outline-none transition-all duration-300 font-medium ${errors.name
-                                            ? 'bg-red-500/10 border border-red-400/50 focus:border-red-400'
-                                            : 'bg-white/10 border border-white/20 focus:border-accent-blue/50 focus:bg-white/15'
-                                            }`}
-                                    />
-                                </motion.div>
-
-                                <motion.div
-                                    initial={{ opacity: 0, y: 20 }}
-                                    whileInView={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: 0.15 }}
-                                    className="space-y-3"
-                                >
-                                    <div className="flex items-center justify-between">
-                                        <label className="text-[11px] text-text-muted font-bold uppercase tracking-widest">Email Address</label>
-                                        {errors.email && (
-                                            <span className="text-[10px] text-red-400 font-semibold flex items-center gap-1">
-                                                <FiAlertCircle size={12} /> {errors.email}
-                                            </span>
-                                        )}
-                                    </div>
-                                    <motion.input
-                                        type="email"
-                                        name="email"
-                                        value={formData.email}
-                                        onChange={handleChange}
-                                        placeholder="your.email@example.com"
-                                        className={`w-full px-5 py-4 rounded-2xl text-white placeholder-white focus:outline-none transition-all duration-300 font-medium ${errors.email
-                                            ? 'bg-red-500/10 border border-red-400/50 focus:border-red-400'
-                                            : 'bg-white/10 border border-white/20 focus:border-accent-blue/50 focus:bg-white/15'
-                                            }`}
-                                    />
-                                </motion.div>
-
-                                <motion.div
-                                    initial={{ opacity: 0, y: 20 }}
-                                    whileInView={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: 0.2 }}
-                                    className="space-y-3"
-                                >
-                                    <div className="flex items-center justify-between">
-                                        <label className="text-[11px] text-text-muted font-bold uppercase tracking-widest">Message</label>
-                                        {errors.message && (
-                                            <span className="text-[10px] text-red-400 font-semibold flex items-center gap-1">
-                                                <FiAlertCircle size={12} /> {errors.message}
-                                            </span>
-                                        )}
-                                    </div>
-                                    <motion.textarea
-                                        name="message"
-                                        value={formData.message}
-                                        onChange={handleChange}
-                                        rows="5"
-                                        placeholder="Tell me about your project or inquiry..."
-                                        className={`w-full px-5 py-4 rounded-2xl text-white placeholder-white focus:outline-none transition-all duration-300 resize-none font-medium ${errors.message
-                                            ? 'bg-red-500/10 border border-red-400/50 focus:border-red-400'
-                                            : 'bg-white/10 border border-white/20 focus:border-accent-blue/50 focus:bg-white/15'
-                                            }`}
-                                    />
-                                </motion.div>
-
-                                <motion.button
-                                    initial={{ opacity: 0, y: 20 }}
-                                    whileInView={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: 0.25 }}
-                                    disabled={isLoading || submitted}
-                                    type="submit"
-                                    className="w-full py-4 rounded-2xl bg-gradient-to-r from-accent-blue via-cyan-400 to-accent-emerald text-white font-bold flex items-center justify-center gap-3 shadow-lg transition-all duration-300 disabled:opacity-75 disabled:cursor-not-allowed"
-                                >
-                                    {submitted ? (
-                                        <>
-                                            <FiCheck size={20} className="text-green-300 animate-bounce" />
-                                            <span>Message Sent Successfully!</span>
-                                        </>
-                                    ) : isLoading ? (
-                                        <>
-                                            <motion.div
-                                                animate={{ rotate: 360 }}
-                                                transition={{ duration: 1, repeat: Infinity }}
-                                                className="w-5 h-5 border-2 border-white border-t-transparent rounded-full"
-                                            />
-                                            <span>Sending...</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <span>Send Message</span>
-                                            <FiSend size={20} />
-                                        </>
-                                    )}
-                                </motion.button>
-                            </form>
+                                        <p className="text-[10px] text-text-muted font-bold uppercase tracking-widest mb-1">{card.label}</p>
+                                        <p className="text-sm font-semibold text-white truncate">{card.value}</p>
+                                    </motion.a>
+                                );
+                            })}
                         </div>
-                    </motion.div>
 
-                    {/* Social & Info Section */}
-                    <motion.div
-                        variants={containerVariants}
-                        initial="hidden"
-                        whileInView="visible"
-                        viewport={{ once: true }}
-                        className="flex flex-col justify-between gap-8"
-                    >
-                        {/* Social Links */}
                         <motion.div
                             variants={itemVariants}
-                            className="group relative p-10 rounded-3xl bg-gradient-to-br from-white/15 to-white/5 border border-white/20 transition-all duration-300"
+                            initial="hidden"
+                            whileInView="visible"
+                            viewport={{ once: true }}
+                            className="p-8 rounded-3xl bg-gradient-to-br from-white/10 to-white/5 border border-white/10"
                         >
-
-                            <h3 className="text-2xl font-bold text-white mb-8">Connect With Me</h3>
-                            <div className="space-y-4">
+                            <h3 className="text-xl font-bold text-white mb-6">Social Links</h3>
+                            <div className="flex flex-wrap gap-4">
                                 {socialLinks.map((social, idx) => {
                                     const Icon = social.icon;
                                     return (
@@ -353,35 +274,108 @@ const ContactComponent = () => {
                                             href={social.href}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 transition-all group/social"
+                                            className="flex items-center gap-3 px-6 py-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all group"
                                         >
-                                            <div className="p-3 rounded-xl bg-gradient-to-br from-accent-blue/30 to-accent-emerald/30 text-white">
-                                                <Icon size={20} />
-                                            </div>
-                                            <span className="font-semibold text-white transition-colors">
-                                                {social.label}
-                                            </span>
-                                            <FiArrowRight size={18} className="ml-auto transition-all" />
+                                            <Icon size={18} className="text-text-secondary group-hover:text-accent-blue transition-colors" />
+                                            <span className="text-sm font-medium text-text-secondary group-hover:text-white">{social.label}</span>
                                         </motion.a>
                                     );
                                 })}
                             </div>
                         </motion.div>
 
-                        {/* Quick Response Card */}
                         <motion.div
                             variants={itemVariants}
-                            className="group relative p-10 rounded-3xl bg-gradient-to-br from-white/15 to-white/5 border border-white/20 transition-all duration-300"
+                            initial="hidden"
+                            whileInView="visible"
+                            viewport={{ once: true }}
+                            className="p-8 rounded-3xl bg-emerald-500/5 border border-emerald-500/20"
                         >
                             <div className="flex items-start gap-4">
-                                <div className="w-3 h-3 bg-emerald-400 rounded-full mt-2" />
+                                <div className="w-2 h-2 bg-emerald-400 rounded-full mt-2 animate-pulse" />
                                 <div>
-                                    <p className="text-[11px] text-accent-emerald font-bold uppercase tracking-widest mb-2">Fast Response</p>
-                                    <p className="text-white font-semibold mb-1">I typically respond within 24 hours</p>
-                                    <p className="text-text-secondary/70 text-sm">Available for freelance projects, collaborations, and full-time opportunities.</p>
+                                    <p className="text-sm font-bold text-white mb-1">Response Time</p>
+                                    <p className="text-text-secondary/70 text-sm">I typically respond within 24 hours.</p>
                                 </div>
                             </div>
                         </motion.div>
+                    </div>
+
+                    {/* Right: Enhanced Contact Form */}
+                    <motion.div
+                        variants={itemVariants}
+                        initial="hidden"
+                        whileInView="visible"
+                        viewport={{ once: true }}
+                        className="bg-white/5 border border-white/10 p-8 md:p-10 rounded-3xl shadow-2xl relative overflow-hidden"
+                    >
+                        <h3 className="text-2xl font-bold text-white mb-2">Send Message</h3>
+                        <p className="text-text-secondary/60 text-sm mb-8">I'll get back to you as soon as possible.</p>
+
+                        <form onSubmit={handleFormSubmit} className="space-y-5">
+                            <div className="space-y-2">
+                                <label className="text-[10px] text-text-muted font-bold uppercase tracking-widest ml-1">Full Name</label>
+                                <input
+                                    type="text"
+                                    name="name"
+                                    value={formData.name}
+                                    onChange={handleChange}
+                                    placeholder="Your Name"
+                                    className={`w-full px-5 py-3.5 rounded-xl bg-white/5 border text-white focus:outline-none transition-all ${errors.name ? 'border-red-500/50' : 'border-white/10 focus:border-accent-blue/50'
+                                        }`}
+                                />
+                                {errors.name && <p className="text-[10px] text-red-500 ml-1">{errors.name}</p>}
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-[10px] text-text-muted font-bold uppercase tracking-widest ml-1">Email Address</label>
+                                <input
+                                    type="email"
+                                    name="email"
+                                    value={formData.email}
+                                    onChange={handleChange}
+                                    placeholder="your@email.com"
+                                    className={`w-full px-5 py-3.5 rounded-xl bg-white/5 border text-white focus:outline-none transition-all ${errors.email ? 'border-red-500/50' : 'border-white/10 focus:border-accent-blue/50'
+                                        }`}
+                                />
+                                {errors.email && <p className="text-[10px] text-red-500 ml-1">{errors.email}</p>}
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-[10px] text-text-muted font-bold uppercase tracking-widest ml-1">Message</label>
+                                <textarea
+                                    name="message"
+                                    value={formData.message}
+                                    onChange={handleChange}
+                                    rows="4"
+                                    placeholder="What's on your mind?"
+                                    className={`w-full px-5 py-3.5 rounded-xl bg-white/5 border text-white focus:outline-none transition-all resize-none ${errors.message ? 'border-red-500/50' : 'border-white/10 focus:border-accent-blue/50'
+                                        }`}
+                                />
+                                {errors.message && <p className="text-[10px] text-red-500 ml-1">{errors.message}</p>}
+                            </div>
+
+                            {errors.submit && (
+                                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 text-xs text-center">
+                                    {errors.submit}
+                                </div>
+                            )}
+
+                            <button
+                                type="submit"
+                                disabled={isLoading}
+                                className="w-full py-4 rounded-xl bg-gradient-to-r from-accent-blue to-accent-emerald text-white font-bold flex items-center justify-center gap-3 shadow-lg shadow-accent-blue/10 hover:shadow-accent-blue/20 transition-all disabled:opacity-50"
+                            >
+                                {isLoading ? (
+                                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                ) : (
+                                    <>
+                                        <span>Send Message</span>
+                                        <FiSend size={18} />
+                                    </>
+                                )}
+                            </button>
+                        </form>
                     </motion.div>
                 </div>
             </div>

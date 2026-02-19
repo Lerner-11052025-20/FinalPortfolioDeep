@@ -2,7 +2,6 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const apiRoutes = require('./src/routes/apiRoutes');
 
 const app = express();
 
@@ -12,7 +11,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Routes
-app.use('/api', apiRoutes);
+// (Email routes removed)
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

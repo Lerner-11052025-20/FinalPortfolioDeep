@@ -106,7 +106,7 @@ const ProjectsComponent = () => {
             category: "Full Stack",
             description: "Sustainable items marketplace built with MERN stack. Features eco-friendly product listings, secure payments, and environmental impact tracking for conscious consumers.",
             technologies: ["React", "Node.js", "MongoDB", "Express", "Tailwind"],
-            image: "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8ZWNvfGVufDB8fDB8fHww",
+            image: "https://images.unsplash.com/photo-1632334009040-00b9274034ac?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTJ8fEVjb3xlbnwwfHwwfHx8MA%3D%3D",
             github: "https://github.com",
             demo: "#"
         },
@@ -115,7 +115,7 @@ const ProjectsComponent = () => {
             category: "Full Stack",
             description: "Comprehensive hotel booking platform with secure user authentication, real-time room availability, and seamless booking management. Engineered for scalability and reliability.",
             technologies: ["React", "Node.js", "MongoDB", "Clerk Auth"],
-            image: "https://plus.unsplash.com/premium_photo-1661964071015-d97428970584?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MXx8aG90ZWx8ZW58MHx8MHx8fDA%3D",
+            image: "https://images.unsplash.com/photo-1625244724120-1fd1d34d00f6?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Nnx8aG90ZWxzfGVufDB8fDB8fHww",
             github: "https://github.com",
             demo: "#"
         },
